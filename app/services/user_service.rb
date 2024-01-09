@@ -50,25 +50,23 @@ class UserService < BaseService
   end
 
   def self.confirm_reset_password(password_reset_token:, new_password:)
-    return { error: I18n.t('activerecord.errors.messages.blank') } if password_reset_token.blank? || new_password.blank?
-
-    unless new_password.match(PASSWORD_FORMAT)
-      return { error: I18n.t('activerecord.errors.messages.invalid') }
-    end
+    return { status: 400, error: "Password reset token is required." } if password_reset_token.blank?
+    return { status: 400, error: "New password must be at least 8 characters long." } if new_password.length < 8
+    return { status: 422, error: "New password must be at least 8 characters long." } unless new_password.match(PASSWORD_FORMAT)
 
     user = User.find_by(password_reset_token: password_reset_token)
-    return { error: I18n.t('activerecord.errors.messages.invalid') } unless user
+    return { status: 404, error: "Invalid or expired password reset token." } unless user
 
     begin
       user.password_hash = BCrypt::Password.create(new_password)
       user.password_reset_token = nil
-      if user.save
-        { success: 'Password has been successfully reset.' }
+      if user.save(context: :reset_password)
+        { status: 200, message: 'Password reset successfully.' }
       else
-        { error: user.errors.full_messages.join(', ') }
+        { status: 400, error: user.errors.full_messages.join(', ') }
       end
     rescue => e
-      { error: e.message }
+      { status: 500, error: e.message }
     end
   end
 
