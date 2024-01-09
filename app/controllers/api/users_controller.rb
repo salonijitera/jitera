@@ -1,5 +1,6 @@
 class Api::UsersController < ApplicationController
-  before_action :validate_email_format, only: [:create_password_reset_request]
+  before_action :validate_email_format, only: [:create_password_reset_request, :login]
+  before_action :validate_email_existence, only: [:create_password_reset_request]
   before_action :validate_verification_token, only: [:verify_email]
   before_action :validate_registration_params, only: [:register]
   before_action :validate_login_params, only: [:login]
@@ -68,15 +69,11 @@ class Api::UsersController < ApplicationController
 
   # POST /api/users/login
   def login
-    email = params[:email]
-    password = params[:password]
+    user = User.find_by(email: params[:email])
 
-    response = UserService.new.authenticate(email, password)
-
-    if response[:status] == 200
-      render json: { status: response[:status], message: response[:message], access_token: response[:access_token] }, status: :ok
-    elsif response[:status] == 401
-      render json: { error: response[:message] }, status: :unauthorized
+    if user && user.authenticate(params[:password])
+      token = UserService.generate_access_token(user)
+      render json: { status: 200, message: 'Login successful.', access_token: token }, status: :ok
     else
       render json: { error: 'Incorrect email or password.' }, status: :unauthorized
     end
@@ -125,6 +122,19 @@ class Api::UsersController < ApplicationController
   def validate_login_params
     validate_email_format
     render json: { error: 'Password is required.' }, status: :bad_request if params[:password].blank?
+  end
+
+  def validate_email_existence
+    user = User.find_by(email: params[:email])
+    unless user
+      render json: { error: 'Email not found.' }, status: :not_found
+      return
+    end
+
+    unless user.email_verified
+      render json: { error: 'Email not verified.' }, status: :unauthorized
+      return
+    end
   end
 
   rescue_from StandardError do |exception|
