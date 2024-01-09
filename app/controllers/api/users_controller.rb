@@ -1,5 +1,7 @@
+require_relative '../../services/shop_service/update'
 require_relative '../../services/user_verification_service'
 require_relative '../../services/user_service/update'
+require_relative '../../policies/shop_policy'
 require_relative '../../policies/application_policy'
 require_relative '../../models/user'
 require_relative '../../models/email_verification_token'
@@ -7,6 +9,8 @@ require_relative '../../models/email_verification_token'
 module Api
   class UsersController < ApplicationController
     before_action :authenticate_user!, except: [:verify_email]
+    before_action :set_user, only: [:update_shop]
+    before_action :authorize_shop_update, only: [:update_shop]
 
     def update
       user_id = params[:id].to_i
@@ -41,6 +45,23 @@ module Api
       end
     end
 
+    def update_shop
+      begin
+        validate_shop_params
+        service = ShopService::Update.new(params[:id], params[:shop_name], params[:shop_description], current_user)
+        result = service.call
+        if result[:error]
+          render json: { error: result[:error] }, status: :unprocessable_entity
+        else
+          render json: { status: 200, message: "Shop information updated successfully." }, status: :ok
+        end
+      rescue ActiveRecord::RecordNotFound
+        render json: { error: "User not found." }, status: :not_found
+      rescue StandardError => e
+        render json: { error: e.message }, status: :internal_server_error
+      end
+    end
+
     def verify_email
       token = params.require(:token)
 
@@ -69,8 +90,17 @@ module Api
       # Implement user authentication logic here
     end
 
-    def user_verification_params
-      params.permit(:token)
+    def set_user
+      @user = User.find(params[:id])
+    end
+
+    def authorize_shop_update
+      authorize @user, policy_class: ShopPolicy
+    end
+
+    def validate_shop_params
+      raise "Shop name is required." if params[:shop_name].blank?
+      raise "Shop description cannot exceed 1000 characters." if params[:shop_description].length > 1000
     end
   end
 end
