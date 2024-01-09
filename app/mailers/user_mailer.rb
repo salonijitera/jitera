@@ -1,4 +1,4 @@
-class UserMailer < ApplicationMailer
+class UserMailer < ::ApplicationMailer
   def send_password_reset_instructions(user, token)
     @user = user
     @token = token
