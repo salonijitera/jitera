@@ -1,22 +1,29 @@
-
 class Api::UsersController < ApplicationController
   before_action :validate_email_format, only: [:create_password_reset_request]
   before_action :validate_verification_token, only: [:verify_email]
 
-  # POST /api/users/reset_password_confirmation
+  # POST /api/users/reset-password
   def reset_password_confirmation
     password_reset_token = params[:password_reset_token]
     new_password = params[:new_password]
 
-    if password_reset_token.blank? || new_password.blank?
-      render json: { error: 'Token and new password are required.' }, status: :unprocessable_entity
+    if password_reset_token.blank?
+      render json: { error: 'Password reset token is required.' }, status: :bad_request
+      return
+    elsif new_password.blank?
+      render json: { error: 'New password is required.' }, status: :unprocessable_entity
+      return
+    elsif new_password.length < 8
+      render json: { error: 'New password must be at least 8 characters long.' }, status: :unprocessable_entity
       return
     end
 
-    result = UserService.confirm_reset_password(password_reset_token, new_password)
+    result = UserService.confirm_reset_password(password_reset_token: password_reset_token, new_password: new_password)
 
     if result[:success]
-      render json: { message: 'Password has been successfully reset.' }, status: :ok
+      render json: { status: 200, message: 'Password reset successfully.' }, status: :ok
+    elsif result[:error] == 'Invalid or expired password reset token.'
+      render json: { error: result[:error] }, status: :not_found
     else
       render json: { error: result[:error] }, status: :unprocessable_entity
     end
