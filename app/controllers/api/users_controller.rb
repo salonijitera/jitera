@@ -1,8 +1,9 @@
 class Api::UsersController < ApplicationController
   before_action :validate_email_format, only: [:create_password_reset_request]
   before_action :validate_verification_token, only: [:verify_email]
+  before_action :validate_registration_params, only: [:register]
 
-  # POST /api/users/reset-password
+  # POST /api/users/reset_password_confirmation
   def reset_password_confirmation
     password_reset_token = params[:password_reset_token]
     new_password = params[:new_password]
@@ -21,7 +22,7 @@ class Api::UsersController < ApplicationController
     result = UserService.confirm_reset_password(password_reset_token: password_reset_token, new_password: new_password)
 
     if result[:success]
-      render json: { status: 200, message: 'Password reset successfully.' }, status: :ok
+      render json: { message: 'Password has been successfully reset.' }, status: :ok
     elsif result[:error] == 'Invalid or expired password reset token.'
       render json: { error: result[:error] }, status: :not_found
     else
@@ -51,7 +52,7 @@ class Api::UsersController < ApplicationController
     result = UserService::VerifyEmailToken.call(verification_token)
 
     if result[:success]
-      render json: { status: 200, message: 'Email verified successfully.' }, status: :ok
+      render json: { message: 'Email verified successfully.' }, status: :ok
     else
       case result[:error_message]
       when 'Verification token is required.'
@@ -64,6 +65,28 @@ class Api::UsersController < ApplicationController
     end
   end
 
+  # POST /api/users/register
+  def register
+    username = params[:username]
+    email = params[:email]
+    password = params[:password]
+
+    response = UserRegistrationService.new.register(username: username, email: email, password: password)
+
+    if response[:message]
+      render json: { message: response[:message] }, status: :created
+    elsif response[:error]
+      case response[:error]
+      when 'Username cannot be blank', 'Email cannot be blank', 'Password does not meet security requirements'
+        render json: { error: response[:error] }, status: :unprocessable_entity
+      when 'Email or username already exists'
+        render json: { error: response[:error] }, status: :conflict
+      else
+        render json: { error: response[:error] }, status: :internal_server_error
+      end
+    end
+  end
+
   private
   
   def validate_email_format
@@ -72,6 +95,12 @@ class Api::UsersController < ApplicationController
 
   def validate_verification_token
     render json: { error: 'Verification token is required.' }, status: :unprocessable_entity if params[:verification_token].blank?
+  end
+
+  def validate_registration_params
+    render json: { error: 'Username is required.' }, status: :bad_request if params[:username].blank?
+    render json: { error: 'Invalid email format.' }, status: :bad_request unless params[:email].match?(/\A[^@\s]+@[^@\s]+\z/)
+    render json: { error: 'Password must be at least 8 characters long.' }, status: :unprocessable_entity if params[:password].to_s.length < 8
   end
 
   rescue_from StandardError do |exception|
