@@ -1,5 +1,6 @@
 class UserService < BaseService
   require 'jwt'
+  require 'bcrypt'
 
   SECRET_KEY = Rails.application.secrets.secret_key_base.to_s
 
@@ -23,20 +24,14 @@ class UserService < BaseService
     end
   end
 
-  private
-
-  def generate_access_token(user_id)
-    JWT.encode({ user_id: user_id, exp: 24.hours.from_now.to_i }, SECRET_KEY)
-  end
-
   def generate_password_reset_token(email)
     begin
       # Validate email format
       raise ArgumentError, 'Invalid email format' unless email =~ URI::MailTo::EMAIL_REGEXP
 
-      # Find verified user by email
-      user = User.find_by(email: email, email_verified: true)
-      raise ArgumentError, 'User not found or not verified' unless user
+      # Find user by email
+      user = User.find_by(email: email)
+      raise ArgumentError, 'User not found or not verified' unless user && user.email_verified
 
       # Generate unique token
       token = Devise.friendly_token
@@ -44,8 +39,8 @@ class UserService < BaseService
       # Update user's password reset token and timestamp
       user.update!(password_reset_token: token, reset_password_sent_at: Time.now.utc)
 
-      # Return the generated token
-      token
+      # Return the generated token and email
+      { token: token, email: user.email }
     rescue => e
       # Log the error
       logger.error "Password reset token generation failed: #{e.message}"
@@ -73,10 +68,12 @@ class UserService < BaseService
       end
     rescue => e
       { error: e.message }
-end
+    end
+  end
+
+  private
+
+  def generate_access_token(user_id)
+    JWT.encode({ user_id: user_id, exp: 24.hours.from_now.to_i }, SECRET_KEY)
   end
 end
-
-# Note: BCrypt is assumed to be part of the Gemfile. If not, it should be added.
-# gem 'bcrypt', '~> 3.1.7'
-

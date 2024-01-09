@@ -20,7 +20,7 @@ class Api::UsersController < ApplicationController
       return
     end
 
-    result = UserService.confirm_reset_password(password_reset_token: password_reset_token, new_password: new_password)
+    result = UserService.confirm_reset_password(password_reset_token, new_password)
 
     if result[:success]
       render json: { message: 'Password has been successfully reset.' }, status: :ok
@@ -39,7 +39,7 @@ class Api::UsersController < ApplicationController
       token = UserService.generate_password_reset_token(email)
       if token
         UserMailer.send_password_reset_instructions(user, token).deliver_now
-        head :ok, message: I18n.t('devise.passwords.send_instructions')
+        render json: { status: 200, message: "Password reset instructions have been sent to your email." }, status: :ok
       else
         render json: { error: 'Failed to generate password reset token.' }, status: :unprocessable_entity
       end
