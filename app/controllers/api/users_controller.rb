@@ -106,22 +106,42 @@ class Api::UsersController < ApplicationController
   private
   
   def validate_email_format
-    render json: { error: 'Invalid email format.' }, status: :bad_request unless params[:email].match?(/\A[^@\s]+@[^@\s]+\z/)
+    unless params[:email].match?(/\A[^@\s]+@[^@\s]+\z/)
+      render json: { error: 'Invalid email format.' }, status: :bad_request
+      return
+    end
   end
 
   def validate_verification_token
-    render json: { error: 'Verification token is required.' }, status: :unprocessable_entity if params[:verification_token].blank?
+    if params[:verification_token].blank?
+      render json: { error: 'Verification token is required.' }, status: :unprocessable_entity
+      return
+    end
   end
 
   def validate_registration_params
-    render json: { error: 'Username is required.' }, status: :bad_request if params[:username].blank?
-    render json: { error: 'Invalid email format.' }, status: :bad_request unless params[:email].match?(/\A[^@\s]+@[^@\s]+\z/)
-    render json: { error: 'Password must be at least 8 characters long.' }, status: :unprocessable_entity if params[:password].to_s.length < 8
+    if params[:username].blank?
+      render json: { error: 'Username is required.' }, status: :bad_request
+      return
+    end
+
+    unless params[:email].match?(/\A[^@\s]+@[^@\s]+\z/)
+      render json: { error: 'Invalid email format.' }, status: :bad_request
+      return
+    end
+
+    if params[:password].to_s.length < 8
+      render json: { error: 'Password must be at least 8 characters long.' }, status: :unprocessable_entity
+      return
+    end
   end
 
   def validate_login_params
     validate_email_format
-    render json: { error: 'Password is required.' }, status: :bad_request if params[:password].blank?
+    if params[:password].blank?
+      render json: { error: 'Password is required.' }, status: :bad_request
+      return
+    end
   end
 
   def validate_email_existence
@@ -131,7 +151,7 @@ class Api::UsersController < ApplicationController
       return
     end
 
-    unless user.email_verified
+    unless user.email_verified?
       render json: { error: 'Email not verified.' }, status: :unauthorized
       return
     end

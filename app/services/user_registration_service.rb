@@ -1,14 +1,15 @@
+
 class UserRegistrationService < BaseService
-  def register(username:, email:, password:)
-    raise ArgumentError, 'Username cannot be blank' if username.blank?
-    raise ArgumentError, 'Email cannot be blank' if email.blank?
-    raise ArgumentError, 'Password does not meet security requirements' unless valid_password?(password)
+  def register(username:, email:, password:) # :nodoc:
+    raise ArgumentError, 'Username is required.' if username.blank?
+    raise ArgumentError, 'Invalid email format.' unless email.match?(URI::MailTo::EMAIL_REGEXP)
+    raise ArgumentError, 'Password must be at least 8 characters long.' if password.length < 8
 
     user = User.find_by(email: email) || User.find_by(username: username)
     raise ArgumentError, 'Email or username already exists' if user
 
     password_hash = BCrypt::Password.create(password)
-    verification_token = generate_verification_token
+    verification_token = SecureRandom.hex(10)
 
     user = User.create!(
       username: username,
@@ -21,14 +22,14 @@ class UserRegistrationService < BaseService
     send_confirmation_email(user)
 
     { message: 'User registered successfully. Please verify your email.' }
-  rescue StandardError => e
+  rescue => e
     { error: e.message }
   end
 
   private
 
+  # Password validation logic
   def valid_password?(password)
-    # Implement password validation logic here
     password.length >= 8
   end
 

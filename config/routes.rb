@@ -10,11 +10,11 @@ Rails.application.routes.draw do
   namespace :api do
     # Routes from the new code
     post '/users/request-password-reset', to: 'users#create_password_reset_request'
+    post '/users/register', to: 'users#register'
     post '/users/verify-email', to: 'users#verify_email'
 
     # Routes from the existing code
     post '/users/login', to: 'users#login'
-    post '/users/register', to: 'users#register'
     post '/users/reset-password', to: 'users#reset_password_confirmation'
   end
 
