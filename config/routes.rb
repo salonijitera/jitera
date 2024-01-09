@@ -7,7 +7,7 @@ Rails.application.routes.draw do
   get '/health' => 'pages#health_check'
   get 'api-docs/v1/swagger.yaml' => 'swagger#yaml'
 
-  # Routes from the new code
+  # Routes from the new code including email verification
   namespace :api do
     post '/users/request-password-reset', to: 'users#create_password_reset_request'
     post '/users/verify-email', to: 'users#verify_email'
