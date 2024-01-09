@@ -1,4 +1,6 @@
 class UserService < BaseService
+  PASSWORD_FORMAT = /\A(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}\z/
+
   def generate_password_reset_token(email)
     begin
       # Validate email format
@@ -22,7 +24,30 @@ class UserService < BaseService
       raise
     end
   end
+
+  def self.confirm_reset_password(password_reset_token:, new_password:)
+    return { error: I18n.t('activerecord.errors.messages.blank') } if password_reset_token.blank? || new_password.blank?
+
+    unless new_password.match(PASSWORD_FORMAT)
+      return { error: I18n.t('activerecord.errors.messages.invalid') }
+    end
+
+    user = User.find_by(password_reset_token: password_reset_token)
+    return { error: I18n.t('activerecord.errors.messages.invalid') } unless user
+
+    begin
+      user.password_hash = BCrypt::Password.create(new_password)
+      user.password_reset_token = nil
+      if user.save
+        { success: 'Password has been successfully reset.' }
+      else
+        { error: user.errors.full_messages.join(', ') }
+      end
+    rescue => e
+      { error: e.message }
+    end
+  end
 end
 
-# Note: BaseService is assumed to be a part of the application's service layer hierarchy.
-# The logger method is assumed to be defined in BaseService or included as a concern.
+# Note: BCrypt is assumed to be part of the Gemfile. If not, it should be added.
+# gem 'bcrypt', '~> 3.1.7'
