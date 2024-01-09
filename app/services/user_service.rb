@@ -1,3 +1,4 @@
+
 class UserService < BaseService
   require 'jwt'
   require 'bcrypt'
@@ -9,15 +10,15 @@ class UserService < BaseService
   def authenticate(email, password)
     begin
       user = User.find_by(email: email)
-      raise ArgumentError, 'Invalid email format.' unless email =~ URI::MailTo::EMAIL_REGEXP
+      raise ArgumentError, 'Invalid email format.' unless email.match?(URI::MailTo::EMAIL_REGEXP)
       raise ArgumentError, 'Password is required.' if password.blank?
-      raise ArgumentError, 'Incorrect email or password.' unless user && BCrypt::Password.new(user.password_hash) == password
+      raise ArgumentError, 'Incorrect email or password.' unless user && user.email_verified && BCrypt::Password.new(user.password_hash) == password
 
       access_token = generate_access_token(user.id)
       { status: 200, message: 'Login successful.', access_token: access_token }
     rescue ArgumentError => e
       logger.error "Authentication failed: #{e.message}"
-      raise
+      { status: 401, message: e.message }
     rescue => e
       logger.error "Internal Server Error: #{e.message}"
       raise
