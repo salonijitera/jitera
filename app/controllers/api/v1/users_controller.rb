@@ -3,7 +3,28 @@ class Api::V1::UsersController < ApplicationController
 
   before_action :validate_email_format, only: [:request_password_reset, :initiate_password_reset]
   before_action :validate_password_format, only: [:reset_password]
+  before_action :user_params, only: [:register]
   rescue_from StandardError, with: :handle_internal_server_error
+
+  # POST /api/users/register
+  def register
+    begin
+      result = UserRegistrationService.new.register(
+        username: params[:user][:username],
+        email: params[:user][:email],
+        password: params[:user][:password]
+      )
+      if result[:error].present?
+        render json: { error: result[:error] }, status: :unprocessable_entity
+      else
+        render 'api/users/register', status: :created
+      end
+    rescue ArgumentError => e
+      render json: { error: e.message }, status: :bad_request
+    rescue => e
+      render json: { error: e.message }, status: :internal_server_error
+    end
+  end
 
   # POST /api/users/login
   def login
@@ -25,8 +46,6 @@ class Api::V1::UsersController < ApplicationController
     else
       render json: { error: @login_response[:message] }, status: :unauthorized
     end
-  rescue => e
-    render json: { error: "An unexpected error occurred on the server." }, status: :internal_server_error
   end
 
   # POST /api/users/verify-email
@@ -110,6 +129,8 @@ class Api::V1::UsersController < ApplicationController
   end
 
   def user_params
-    params.require(:user).permit(:email)
+    params.require(:user).permit(:username, :email, :password)
+  rescue ActionController::ParameterMissing
+    render json: { error: "Missing user parameters" }, status: :bad_request
   end
 end

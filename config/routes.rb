@@ -13,8 +13,8 @@ Rails.application.routes.draw do
 
     # Routes from the existing code with updates
     post '/users/login', to: 'v1/users#login' # Updated to point to v1/users#login
-    post '/users/register', to: 'users#register'
-    
+    post '/users/register', to: 'api/v1/users#register' # Updated to point to api/v1/users#register
+
     # Combined route from new and existing code
     post '/users/reset-password', to: 'users#reset_password_confirmation'
 
