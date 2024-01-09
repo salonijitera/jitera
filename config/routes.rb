@@ -1,4 +1,3 @@
-
 require 'sidekiq/web'
 
 Rails.application.routes.draw do
@@ -7,11 +6,11 @@ Rails.application.routes.draw do
   get '/health' => 'pages#health_check'
   get 'api-docs/v1/swagger.yaml' => 'swagger#yaml'
 
-  # Consolidated routes from both the new and existing code
   namespace :api do
     # Routes from the new code
     post '/users/request-password-reset', to: 'users#create_password_reset_request'
     post '/users/verify-email', to: 'users#verify_email'
+    post '/users/password-reset/confirm', to: 'users#reset_password'
     post '/users/password-reset/initiate', to: 'users#initiate_password_reset'
 
     # Routes from the existing code
