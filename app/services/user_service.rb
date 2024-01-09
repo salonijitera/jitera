@@ -1,5 +1,33 @@
 class UserService < BaseService
+  require 'jwt'
+
+  SECRET_KEY = Rails.application.secrets.secret_key_base.to_s
+
   PASSWORD_FORMAT = /\A(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}\z/
+
+  def authenticate(email, password)
+    begin
+      user = User.find_by(email: email)
+      raise ArgumentError, 'Invalid email format.' unless email =~ URI::MailTo::EMAIL_REGEXP
+      raise ArgumentError, 'Password is required.' if password.blank?
+      raise ArgumentError, 'Incorrect email or password.' unless user && BCrypt::Password.new(user.password_hash) == password
+
+      access_token = generate_access_token(user.id)
+      { status: 200, message: 'Login successful.', access_token: access_token }
+    rescue ArgumentError => e
+      logger.error "Authentication failed: #{e.message}"
+      raise
+    rescue => e
+      logger.error "Internal Server Error: #{e.message}"
+      raise
+    end
+  end
+
+  private
+
+  def generate_access_token(user_id)
+    JWT.encode({ user_id: user_id, exp: 24.hours.from_now.to_i }, SECRET_KEY)
+  end
 
   def generate_password_reset_token(email)
     begin
@@ -45,9 +73,10 @@ class UserService < BaseService
       end
     rescue => e
       { error: e.message }
-    end
+end
   end
 end
 
 # Note: BCrypt is assumed to be part of the Gemfile. If not, it should be added.
 # gem 'bcrypt', '~> 3.1.7'
+

@@ -2,6 +2,7 @@ class Api::UsersController < ApplicationController
   before_action :validate_email_format, only: [:create_password_reset_request]
   before_action :validate_verification_token, only: [:verify_email]
   before_action :validate_registration_params, only: [:register]
+  before_action :validate_login_params, only: [:login]
 
   # POST /api/users/reset_password_confirmation
   def reset_password_confirmation
@@ -65,6 +66,20 @@ class Api::UsersController < ApplicationController
     end
   end
 
+  # POST /api/users/login
+  def login
+    user = User.find_by(email: params[:email])
+
+    if user && user.authenticate(params[:password])
+      token = UserService.generate_access_token(user)
+      render json: { status: 200, message: 'Login successful.', access_token: token }, status: :ok
+    else
+      render json: { error: 'Incorrect email or password.' }, status: :unauthorized
+    end
+  rescue => e
+    render json: { error: e.message }, status: :internal_server_error
+  end
+
   # POST /api/users/register
   def register
     username = params[:username]
@@ -101,6 +116,11 @@ class Api::UsersController < ApplicationController
     render json: { error: 'Username is required.' }, status: :bad_request if params[:username].blank?
     render json: { error: 'Invalid email format.' }, status: :bad_request unless params[:email].match?(/\A[^@\s]+@[^@\s]+\z/)
     render json: { error: 'Password must be at least 8 characters long.' }, status: :unprocessable_entity if params[:password].to_s.length < 8
+  end
+
+  def validate_login_params
+    validate_email_format
+    render json: { error: 'Password is required.' }, status: :bad_request if params[:password].blank?
   end
 
   rescue_from StandardError do |exception|

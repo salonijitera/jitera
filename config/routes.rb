@@ -3,6 +3,7 @@ require 'sidekiq/web'
 Rails.application.routes.draw do
   mount Rswag::Ui::Engine => '/api-docs'
   mount Rswag::Api::Engine => '/api-docs'
+  post '/api/users/login', to: 'api/users#login'
   get '/health' => 'pages#health_check'
   get 'api-docs/v1/swagger.yaml' => 'swagger#yaml'
 
