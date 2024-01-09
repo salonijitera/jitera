@@ -1,6 +1,6 @@
 class UserService::VerifyEmailToken < BaseService
   def call(verification_token)
-    raise ArgumentError, 'Verification token cannot be empty' if verification_token.blank?
+    raise ArgumentError, 'Verification token cannot be empty' if verification_token.nil? || verification_token.strip.empty?
 
     user = User.find_by(verification_token: verification_token)
 
