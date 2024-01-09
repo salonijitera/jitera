@@ -1,6 +1,32 @@
 class Api::V1::UsersController < ApplicationController
+  include UserService
+
   before_action :validate_email_format, only: [:request_password_reset, :initiate_password_reset]
   before_action :validate_password_format, only: [:reset_password]
+
+  # POST /api/users/login
+  def login
+    username = params[:username]
+    password = params[:password]
+
+    if username.blank?
+      return render json: { error: "Username is required." }, status: :bad_request
+    end
+
+    if password.blank?
+      return render json: { error: "Password is required." }, status: :bad_request
+    end
+
+    @login_response = authenticate(username, password)
+
+    if @login_response[:status] == 200
+      render 'api/users/login', status: :ok
+    else
+      render json: { error: @login_response[:message] }, status: :unauthorized
+    end
+  rescue => e
+    render json: { error: "An unexpected error occurred on the server." }, status: :internal_server_error
+  end
 
   # POST /api/users/request-password-reset
   def request_password_reset
