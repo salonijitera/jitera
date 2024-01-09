@@ -3,6 +3,7 @@ class Api::V1::UsersController < ApplicationController
 
   before_action :validate_email_format, only: [:request_password_reset, :initiate_password_reset]
   before_action :validate_password_format, only: [:reset_password]
+  rescue_from StandardError, with: :handle_internal_server_error
 
   # POST /api/users/login
   def login
@@ -26,6 +27,22 @@ class Api::V1::UsersController < ApplicationController
     end
   rescue => e
     render json: { error: "An unexpected error occurred on the server." }, status: :internal_server_error
+  end
+
+  # POST /api/users/verify-email
+  def verify_email
+    result = UserService::VerifyEmailToken.call(params[:verification_token])
+
+    if result[:success]
+      render json: { status: 200, message: result[:message] }, status: :ok
+    else
+      case result[:error_message]
+      when 'Invalid or expired verification token.'
+        render json: { error: result[:error_message] }, status: :not_found
+      else
+        render json: { error: result[:error_message] }, status: :bad_request
+      end
+    end
   end
 
   # POST /api/users/request-password-reset
@@ -77,6 +94,10 @@ class Api::V1::UsersController < ApplicationController
   end
 
   private
+
+  def handle_internal_server_error(exception)
+    render json: { error: 'An unexpected error occurred on the server.' }, status: :internal_server_error
+  end
 
   def validate_email_format
     unless params[:email].match?(/\A[\w+\-.]+@[a-z\d\-.]+\.[a-z]+\z/i) || params[:email] =~ URI::MailTo::EMAIL_REGEXP
