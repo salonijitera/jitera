@@ -68,11 +68,15 @@ class Api::UsersController < ApplicationController
 
   # POST /api/users/login
   def login
-    user = User.find_by(email: params[:email])
+    email = params[:email]
+    password = params[:password]
 
-    if user && user.authenticate(params[:password])
-      token = UserService.generate_access_token(user)
-      render json: { status: 200, message: 'Login successful.', access_token: token }, status: :ok
+    response = UserService.new.authenticate(email, password)
+
+    if response[:status] == 200
+      render json: { status: response[:status], message: response[:message], access_token: response[:access_token] }, status: :ok
+    elsif response[:status] == 401
+      render json: { error: response[:message] }, status: :unauthorized
     else
       render json: { error: 'Incorrect email or password.' }, status: :unauthorized
     end
@@ -126,22 +130,4 @@ class Api::UsersController < ApplicationController
   rescue_from StandardError do |exception|
     render json: { error: exception.message }, status: :internal_server_error
   end
-  def verify_email
-    verification_token = params[:verification_token]
-    result = UserService::VerifyEmailToken.call(verification_token)
-
-    if result[:success]
-      render json: { status: 200, message: 'Email verified successfully.' }, status: :ok
-    else
-      case result[:error_message]
-      when 'Verification token is required.'
-        render json: { error: result[:error_message] }, status: :bad_request
-      when 'Invalid or expired verification token.'
-        render json: { error: result[:error_message] }, status: :not_found
-      else
-        render json: { error: result[:error_message] }, status: :internal_server_error
-      end
-    end
-  end
-
 end

@@ -1,3 +1,3 @@
-json.status 200
-json.message "Login successful."
-json.access_token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+json.status @login_response[:status]
+json.message @login_response[:message]
+json.access_token @login_response[:access_token]
