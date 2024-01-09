@@ -1,32 +1,12 @@
-require_relative '../../services/user_service/create'
+require_relative '../../services/user_verification_service'
 require_relative '../../services/user_service/update'
 require_relative '../../policies/application_policy'
 require_relative '../../models/user'
+require_relative '../../models/email_verification_token'
 
 module Api
   class UsersController < ApplicationController
-    before_action :authenticate_user!, except: [:register]
-
-    # POST /api/users/register
-    def register
-      begin
-        validate_register_params(params)
-
-        user = UserService::Create.create_user(
-          username: params[:username],
-          email: params[:email],
-          password_hash: hash_password(params[:password])
-        )
-
-        render json: { status: 201, message: "User registered successfully. Please check your email to verify your account." }, status: :created
-      rescue ArgumentError => e
-        render json: { error: e.message }, status: :bad_request
-      rescue ActiveRecord::RecordNotUnique
-        render json: { error: "Username or email is already in use." }, status: :conflict
-      rescue StandardError => e
-        render json: { error: "An unexpected error occurred." }, status: :internal_server_error
-      end
-    end
+    before_action :authenticate_user!, except: [:verify_email]
 
     def update
       user_id = params[:id].to_i
@@ -61,21 +41,36 @@ module Api
       end
     end
 
+    def verify_email
+      token = params.require(:token)
+
+      begin
+        result = UserVerificationService.verify_email(nil, token)
+
+        if result[:status] == 'success'
+          render json: { status: 200, message: 'Email verified successfully.' }, status: :ok
+        else
+          render json: { message: result[:message] }, status: :unprocessable_entity
+        end
+      rescue ActiveRecord::RecordNotFound
+        render json: { message: 'Invalid verification token.' }, status: :not_found
+      rescue StandardError => e
+        if e.message == 'Verification failed: Token is invalid or has expired.'
+          render json: { message: 'The verification token has expired.' }, status: :unprocessable_entity
+        else
+          render json: { message: 'An unexpected error occurred on the server.' }, status: :internal_server_error
+        end
+      end
+    end
+
     private
 
     def authenticate_user!
       # Implement user authentication logic here
     end
 
-    def validate_register_params(params)
-      raise ArgumentError, "Username is required." if params[:username].blank?
-      raise ArgumentError, "Invalid email format." unless params[:email] =~ URI::MailTo::EMAIL_REGEXP
-      raise ArgumentError, "Password must be at least 8 characters long." if params[:password].length < 8
-    end
-
-    def hash_password(password)
-      # Assuming there's a method to hash the password
-      Digest::SHA256.hexdigest(password)
+    def user_verification_params
+      params.permit(:token)
     end
   end
 end
